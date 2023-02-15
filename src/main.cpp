@@ -1,6 +1,6 @@
 const char version[] = "Build: 22-02-22 17:39";
 // define decktype
-int deckType = 1; // Deck type: 0 = No velocity detection, 1 = Dual switch velocity detection
+int deckType = 0; // Deck type: 0 = No velocity detection, 1 = Dual switch velocity detection
 
 //----------------------------------------------------------------------------//
 //                        -----  Melodicade MX  -----                         //
@@ -196,40 +196,27 @@ using namespace MIDI_NAMESPACE;
 
 
 // declaration of the PCF8575 objects
-PCF8575 PCF1(0x26, &Wire);
-PCF8575 PCF2(0x22, &Wire);
+PCF8575 PCF1(0x26, &Wire1);
+PCF8575 PCF2(0x22, &Wire1);
 
 
 // Analog input pins
-const byte topPotPin            = A7;
-const byte bottomPotPin         = A6;
+const byte topPotPin            = 26;
+const byte bottomPotPin         = 27;
 
 // Rotary encoder pins and library configuration
-RotaryEncoder encoder(A9, A8, RotaryEncoder::LatchMode::FOUR3);
+RotaryEncoder encoder(14, 15, RotaryEncoder::LatchMode::FOUR3);
 
 // Digital input pins
-const byte rotaryEncoderButtonPin = 17;
-const byte footPedalPin           = 13;
+const byte rotaryEncoderButtonPin = 8;
+const byte footPedalPin           = 0;
 
-// Button row pins
-const byte rowPins[] = {16, 15, 14, 41, 40, 39, 38, 37, 36, 35, 34, 33};        // Row pins in order from top to bottom
-const byte rowCount = sizeof(rowPins);                                          // The number of rows in the matrix
-
-// Keyswitch column pins
-const byte keyswitchColumnPins[] = {11, 24, 25, 26, 27, 28, 29, 30, 31, 32};    // Column pins in order from left to right (top perspective)
-const byte columnCount = sizeof(keyswitchColumnPins);                           // The number of columns in the matrix
-
-// Tact switch column pins
-const byte tactSwitchColumnPins[] = {0, 2, 3, 4, 5, 6, 7, 8, 9, 10};            // Column pins in order from left to right (top perspective)
 
 byte deckScanToggle;                                                            // Variable for bouncing between key-switch and tact-switch decks when scanning
 
 // Variables for matrix scanning
-const byte elementCount = columnCount * rowCount;                               // The total number of elements in the matrix
-byte columnIndex;                                                               // Current column index for scanning
-byte currentColumn = keyswitchColumnPins[columnIndex];                          // Column being scanned
+const byte elementCount = 36;                               // The total number of elements in the matrix
 byte rowIndex;                                                                  // Current row index for scanning
-byte currentRow = rowPins[rowIndex];                                            // Row being scanned
 
 // MIDI channel map (pushing percussion channel 9 to the end to simplify coding)
 const byte channelMap[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 9};
@@ -365,36 +352,50 @@ byte previousLoopPercentage;                                                    
 byte noteTracking[16][127];                                                     // Track noteOn packets that have been sent to the bus to ensure closing noteOffs are also sent on playback interruption
 
 
+// replace 0 by value of the pin and add 32
+const byte pinArrayPCF[36] = {
+  4, 0, 0, 
+  0, 8, 9, 
+  10, 11, 12, 
+  13, 14, 15, 
+  7, 6, 5, 
+  0, 3, 2, 
+  1, 55, 16, 
+  17, 18, 19, 
+  20, 21, 22, 
+  31, 23, 30, 
+  29, 28, 27, 
+  26, 25, 24, 
+};
+
+const byte pinArrayClassicPin[36] = {
+  0, 6, 2, 
+  0, 0, 0, 
+  0, 0, 0, 
+  0, 0, 0, 
+  0, 0, 0, 
+  4, 0, 0, 
+  0, 5, 0, 
+  0, 0, 0,
+  0, 0, 0,
+  0, 0, 0,
+  0, 0, 0,
+  0, 0, 0,
+};
 // Default MIDI pitch value assignment
 const byte wickiHaydenLayout[elementCount] = {
 00,       90,  92,  94,  96,  98, 100, 102, 104, 106,                           // '00' indicates unused node
        83,  85,  87,  89,  91,  93,  95,  97,  99, 101,
 00,       78,  80,  82,  84,  86,  88,  90,  92,  94,
-       71,  73,  75,  77,  79,  81,  83,  85,  87,  89,
-00,       66,  68,  70,  72,  74,  76,  78,  80,  82,
-       59,  61,  63,  65,  67,  69,  71,  73,  75,  77,
-00,       54,  56,  58,  60,  62,  64,  66,  68,  70,
-       47,  49,  51,  53,  55,  57,  59,  61,  63,  65,
-00,       42,  44,  46,  48,  50,  52,  54,  56,  58,
-       35,  37,  39,  41,  43,  45,  47,  49,  51,  53,
-00,       30,  32,  34,  36,  38,  40,  42,  44,  46,
-       23,  25,  27,  29,  31,  33,  35,  37,  39,  41
+       71,  73,  75,  77,  79,  81
 };
+
 
 const byte drumLayout[elementCount] = {
 00,       00,  00,  00,  00,  00,  00,  00,  00,  00,
        00,  00,  00,  00,  00,  00,  00,  00,  00,  00,
 00,       00,  00,  00,  00,  28,  00,  00,  00,  00,
-       00,  25,  26,  29,  30,  86,  87,  78,  79,  00,
-00,       73,  74,  75,  82,  27,  83,  84,  71,  72,
-       00,  77,  76,  62,  64,  63,  85,  68,  67,  00,
-00,       66,  65,  41,  47,  48,  50,  57,  80,  81,
-       00,  61,  60,  43,  45,  48,  49,  52,  69,  00,
-00,       70,  58,  42,  46,  46,  42,  51,  59,  54,
-       25,  39,  40,  37,  38,  38,  37,  40,  31,  25,
-00,       44,  35,  55,  36,  35,  36,  53,  35,  56,
-       00,  00,  00,  00,  00,  00,  00,  00,  00,  00
-};
+       00,  25,  26,  29,  30,  86};
 
 
 // GM GS/GM2/XG bank maps, program maps and instrument names (instrument name strings must be 21 characters to ensure the entire line is cleared on oledUpdate)
@@ -1624,161 +1625,69 @@ void playNotes()
             }
         }
     }
-    
+}
+
+int getButtonState(uint8_t index)
+{
+    // if value is 0 in PCF array then classic reading
+    if (pinArrayPCF[index] != 0)
+    {
+        if (pinArrayPCF[index] < 16)
+        {
+            return PCF1.readButton(pinArrayPCF[index]);
+        }
+
+        else if (pinArrayPCF[index] < 32)
+        {
+            return PCF2.readButton(pinArrayPCF[index] - 16);
+        }
+        if (pinArrayPCF[index] == 55)
+        {
+            return PCF1.readButton(0);
+        }
+    }
+    else
+    {
+        return digitalRead(pinArrayClassicPin[index]);
+    }
+    return 0;
 }
 
 void digitalButtons()
 {
-    // TODO remplacer par un tableau a une dimension
-    // faire une fonction qui récupère état touche courante
 
-    // Scan each row in a column, then increment the column index and start down the rows again.  Increment indexes on next loop, or reset when limits are reached.
-    // Scanning of each node is broken out into separate program loops, as it can take pins several microseconds to fully change state,
-    // and that time is far better utilized by executing program code than on unnecessary delay statements.
-    if (rowIndex >= rowCount)                                                                   // If row index limit is reached
+    if (rowIndex >= 36)                                                                   // If row index limit is reached
     {
-        rowIndex = 0;                                                                           // Wrap around to 0
-        digitalWrite(currentColumn, HIGH);                                                      // Set the now finished column pin back to HIGH and move on to the next column pin.
-        columnIndex = columnIndex + 1;                                                          // Increment column index in preparation for next scan cycle
-        if (columnIndex >= columnCount)                                                         // If column index limit has also been reached (the whole deck should have been scanned at this point)
-        {
-            columnIndex = 0;                                                                    // Wrap around to 0
-            if (velocityDetectionEnabled == 1) { deckScanToggle = !deckScanToggle; }            // Toggle over to scanning of the tact switch deck if velocity detection is enabled
-        }
-        if (deckScanToggle == LOW) currentColumn = keyswitchColumnPins[columnIndex];            // Depending on active deck, hold the currently selected keyswitch column pin in a variable...
-        else if (deckScanToggle == HIGH) currentColumn = tactSwitchColumnPins[columnIndex];     // or hold the currently selected tact switch column pin in a variable.
-        digitalWrite(currentColumn, LOW);                                                       // Set the pin state to LOW turning it into a temporary ground.
-        delayMicroseconds(1);                                                                   // Give the pin a bit more time to change states (ghost readings on the first row otherwise)
+       rowIndex = 0;                                                                  // Give the pin a bit more time to change states (ghost readings on the first row otherwise)
     }
 
     // Keyswitch deck
-    if (deckScanToggle == LOW)
+    byte buttonNumber = rowIndex;                     
+    uint8_t buttonState = getButtonState(rowIndex);
+
+    if (buttonState == HIGH && activeKeyswitches[buttonNumber] == LOW && (millis() - keyswitchDebounceTimer[buttonNumber]) > debounceTime)   // If the polled button is active and passes debounce...
     {
-        byte buttonNumber = columnIndex + (rowIndex * columnCount);                             // Assign this location in the matrix a unique number for array storage later.
-        currentRow = rowPins[rowIndex];                                                         // Hold the currently selected row pin in a variable.
-        byte buttonState = !digitalRead(currentRow);                                            // Take reading, invert due to INPUT_PULLUP, and store the currently selected pin state.
-        if (buttonState == HIGH && activeKeyswitches[buttonNumber] == LOW && (millis() - keyswitchDebounceTimer[buttonNumber]) > debounceTime)   // If the polled button is active and passes debounce...
+        activeKeyswitches[buttonNumber] = HIGH;                                             // store the button state...
+        keyswitchDebounceTimer[buttonNumber] = millis();                                    // and save the last button change time for later debounce comparison.
+        keyswitchActivationTime[buttonNumber] = micros();                                   // Record button activation time for velocity calculation
+
+        if (velocityDetectionEnabled == 0 && buttonNumber != 40 && buttonNumber != 60 && buttonNumber != 80 && buttonNumber != 100)   // If velocity detection is disabled and active button is not in the control panel
         {
-            activeKeyswitches[buttonNumber] = HIGH;                                             // store the button state...
-            keyswitchDebounceTimer[buttonNumber] = millis();                                    // and save the last button change time for later debounce comparison.
-            keyswitchActivationTime[buttonNumber] = micros();                                   // Record button activation time for velocity calculation
-            if (velocityDetectionEnabled == 0 && buttonNumber != 0 && buttonNumber != 20 && buttonNumber != 40 && buttonNumber != 60 && buttonNumber != 80 && buttonNumber != 100)   // If velocity detection is disabled and active button is not in the control panel
-            {
-                activeNotes[buttonNumber] = HIGH;                                               // Record an active note immediately on keyswitch activation.
-                noteVelocity[buttonNumber] = 127 - potVelocity;                                 // Applying a modifier rather than setting it directly, as this pot also serves as a modifier for the velocity sensing deck
-                loopInputDetected = HIGH;                                                       // Activate the loopInputDetected variable for looper
-            }
-
-            // Control panel buttons
-            // TODO Ajouter les pins pour les 6 boutons en plus.
-            if (buttonNumber == 0)   { channelUpButton = HIGH; }                                // If a control panel button was pressed, set the state to HIGH (active)
-            if (buttonNumber == 20)  { channelDownButton = HIGH; }
-            if (buttonNumber == 40)  { pitchUpHalfButton = HIGH; }
-            if (buttonNumber == 60)  { modulationHalfButton = HIGH; }
-            if (buttonNumber == 80)  { pitchDownHalfButton = HIGH; }
-            if (buttonNumber == 100) { loopButton = HIGH; }
-
-            // OLED screensaver activity monitor
-            oledScreensaverTime = millis();                                                     // Reset the OLED screensaver countdown clock
-            if (oledOnOff == LOW)                                                               // If the OLED screensaver is currently active (meaning display is off)...
-            {
-                oled.ssd1306WriteCmd(SSD1306_DISPLAYON);                                        // turn the display back on.
-                oledOnOff = HIGH;                                                               // Toggle the locking variable
-            }
-
+            activeNotes[buttonNumber] = HIGH;                                               // Record an active note immediately on keyswitch activation.
+            noteVelocity[buttonNumber] = 127 - potVelocity;                                 // Applying a modifier rather than setting it directly, as this pot also serves as a modifier for the velocity sensing deck
+            loopInputDetected = HIGH;                                                       // Activate the loopInputDetected variable for looper
         }
-        else if (buttonState == LOW && activeKeyswitches[buttonNumber] == HIGH && (millis() - keyswitchDebounceTimer[buttonNumber]) > debounceTime)  // If the polled button is inactive and passes debounce...
-        {
-            activeKeyswitches[buttonNumber] = LOW;                                              // store the button state...
-            keyswitchDebounceTimer[buttonNumber] = millis();                                    // and save the last button press time for later debounce comparison.
-            activeNotes[buttonNumber] = LOW;                                                    // Record an inactive note
 
-            // Control panel buttons
-            if (buttonNumber == 0)   { channelUpButton = LOW; }
-            if (buttonNumber == 20)  { channelDownButton = LOW; }
-            if (buttonNumber == 40)  { pitchUpHalfButton = LOW; }
-            if (buttonNumber == 60)  { modulationHalfButton = LOW;}
-            if (buttonNumber == 80)  { pitchDownHalfButton = LOW; }
-            if (buttonNumber == 100) { loopButton = LOW; }
-        }
+
+    }
+    else if (buttonState == LOW && activeKeyswitches[buttonNumber] == HIGH && (millis() - keyswitchDebounceTimer[buttonNumber]) > debounceTime)  // If the polled button is inactive and passes debounce...
+    {
+        activeKeyswitches[buttonNumber] = LOW;                                              // store the button state...
+        keyswitchDebounceTimer[buttonNumber] = millis();                                    // and save the last button press time for later debounce comparison.
+        activeNotes[buttonNumber] = LOW;                                                    // Record an inactive note
     }
 
-    // Tact Switch Deck
-    else
-    {
-        byte buttonNumber = columnIndex + (rowIndex * columnCount);                             // Assign this location in the matrix a unique number for array storage later.
-
-        if (activeKeyswitches[buttonNumber] == HIGH)                                            // Only scan the bottom tact switch if the associated upper keyswitch is active to increase effeciency
-        {
-
-// When running hardwareTest() comment out this block so that the tact-switch values always display the correct value, and won't time out
-// /*
-            // If the top switch has been active longer than 30000µs, give up on velocity detection and send the lowest desired velocity
-            if (activeTactSwitches[buttonNumber] == LOW && micros() - keyswitchActivationTime[buttonNumber] > 30000
-                && buttonNumber != 0 && buttonNumber != 20 && buttonNumber != 40 && buttonNumber != 60 && buttonNumber != 80 && buttonNumber != 100)    // Omit the control panel keys due to their dual position functionaltiy
-            {
-                activeTactSwitches[buttonNumber] = HIGH;                                        // Override and set tact switch high
-                tactSwitchDebounceTimer[buttonNumber] = millis();                               // Update debounce timer
-                keyswitchActivationTime[buttonNumber] = 0;                                      // Clear velocity calculation timer
-                activeNotes[buttonNumber] = HIGH;                                               // Record an active note
-                noteVelocity[buttonNumber] = constrain(78 - (potVelocity / 2), 0, 127);         // Record a "Soft" velocity level.
-                loopInputDetected = HIGH;                                                       // Activate the loopInputDetected variable for looper
-            }
-// */
-
-            currentRow = rowPins[rowIndex];                                                     // Hold the currently selected row pin in a variable.
-            byte buttonState = !digitalRead(currentRow);                                        // Take reading, invert due to INPUT_PULLUP, and store the currently selected pin state.
-
-            if (buttonState == HIGH && activeTactSwitches[buttonNumber] == LOW && (millis() - tactSwitchDebounceTimer[buttonNumber]) > debounceTime)    // If the polled button is active and passes debounce...
-            {
-                activeTactSwitches[buttonNumber] = HIGH;                                        // store the button state...
-                tactSwitchDebounceTimer[buttonNumber] = millis();                               // and save the last button change time for later debounce comparison.
-                tactSwitchActivationTime[buttonNumber] = micros();                              // Record button activation time for velocity calculation
-                if (buttonNumber != 0 && buttonNumber != 20 && buttonNumber != 40 && buttonNumber != 60 && buttonNumber != 80 && buttonNumber != 100)
-                {
-                    activeNotes[buttonNumber] = HIGH;
-                    loopInputDetected = HIGH;
-
-                    // Calculate velocity
-                    unsigned long buttonTimeDifference = (tactSwitchActivationTime[buttonNumber] - keyswitchActivationTime[buttonNumber]);
-                    if      (buttonTimeDifference <=  1800) { buttonTimeDifference =  1800; }
-                    else if (buttonTimeDifference >= 30000) { buttonTimeDifference = 30000; }
-
-                    // Print values to serial monitor for calibration
-                    // Serial.println(buttonTimeDifference);
-
-                    // Defining a crude velocity curve
-                    // "Slam" velocity
-                    if      (buttonTimeDifference >= 1800 && buttonTimeDifference <=  5800) { noteVelocity[buttonNumber] = map(buttonTimeDifference, 1800, 5800, 127, 111) - (potVelocity / 2); }
-                    // "Hard" velocity
-                    else if (buttonTimeDifference >= 5801 && buttonTimeDifference <=  15000) { noteVelocity[buttonNumber] = map(buttonTimeDifference, 5801, 15000, 110, 95) - (potVelocity / 2); }
-                    // "Normal" velocity
-                    else if (buttonTimeDifference >= 15001 && buttonTimeDifference <= 30000) { noteVelocity[buttonNumber] = map(buttonTimeDifference, 15001, 30000, 94, 79) - constrain((potVelocity / 2), 0, 127); }
-                    // "Soft" velocity (above) is anything longer than our threshold
-                }
-
-                if      (buttonNumber == 40)  { pitchUpFullButton = HIGH; }
-                else if (buttonNumber == 60)  { modulationFullButton = HIGH; }
-                else if (buttonNumber == 80)  { pitchDownFullButton = HIGH; }
-
-            }
-
-            else if (buttonState == LOW && activeTactSwitches[buttonNumber] == HIGH && (millis() - tactSwitchDebounceTimer[buttonNumber]) > debounceTime)
-            {
-                if      (buttonNumber == 40)  { pitchUpFullButton = LOW; activeTactSwitches[buttonNumber] = LOW;}
-                else if (buttonNumber == 60)  { modulationFullButton = LOW; activeTactSwitches[buttonNumber] = LOW;}
-                else if (buttonNumber == 80)  { pitchDownFullButton = LOW; activeTactSwitches[buttonNumber] = LOW;}
-                tactSwitchDebounceTimer[buttonNumber] = millis();
-            }
-
-        }
-
-        else if (activeKeyswitches[buttonNumber] == LOW)                                        // Only unlatch the bottom button after the top has been released, as the full cycle is required for velocity calculation
-        {
-            activeTactSwitches[buttonNumber] = LOW;
-        }
-    }
-    rowIndex = rowIndex + 1;                                                                    // Increment row index in preparation for next program loop
+    rowIndex = rowIndex + 1; // Increment row index in preparation for next program loop
 }
 
 void footPedal()
@@ -2698,79 +2607,8 @@ void hardwareTest()
     {
         lastHardwareTestPrintTime = millis();
 
-        for (int i = 0; i < 30; i++)
-        {
-            Serial.print(i);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 0; i < 30; i++)
-        {
-            Serial.print(activeKeyswitches[i]);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 0; i < 30; i++)
-        {
-            Serial.print(activeTactSwitches[i]);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 30; i < 60; i++)
-        {
-            Serial.print(i);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 30; i < 60; i++)
-        {
-            Serial.print(activeKeyswitches[i]);
-            Serial.print("\t");
-        }
         Serial.println();
 
-        for (int i = 30; i < 60; i++)
-        {
-            Serial.print(activeTactSwitches[i]);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 60; i < 90; i++)
-        {
-            Serial.print(i);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 60; i < 90; i++)
-        {
-            Serial.print(activeKeyswitches[i]);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 60; i < 90; i++)
-        {
-            Serial.print(activeTactSwitches[i]);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 90; i < 120; i++)
-        {
-            Serial.print(i);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 90; i < 120; i++)
-        {
-            Serial.print(activeKeyswitches[i]);
-            Serial.print("\t");
-        }
-        Serial.println();
-        for (int i = 90; i < 120; i++)
-        {
-            Serial.print(activeTactSwitches[i]);
-            Serial.print("\t");
-        }
-        Serial.println();
 
         Serial.print("Rotary Enc Pos: ");
         Serial.print(rotaryEncoderPosition);
@@ -2962,7 +2800,33 @@ void setup()
     }
 
     AudioMemory(20);
+    if (!PCF1.begin())
+    {
+        Serial.println("could not initialize...");
+    }
+    if (!PCF1.isConnected())
+    {
+        Serial.println("=> not connected");
+    }
+    else
+    {
+        Serial.println("=> connected!!");
+    }
+    if (!PCF2.begin())
+    {
+        Serial.println("could not initialize...");
+    }
+    if (!PCF2.isConnected())
+    {
+        Serial.println("=> not connected");
+    }
+    else
+    {
+        Serial.println("=> connected!!");
+    }
 
+    PCF1.setButtonMask(0xFFFF);
+    PCF2.setButtonMask(0xFFFF);
     // // 440Hz sine wave test
     // waveformCh[0][0].begin(0.3, 440, WAVEFORM_SINE);
     // envelopeCh[0][0].noteOn();
@@ -2985,21 +2849,7 @@ void setup()
     Serial1.begin(31250, SERIAL_8N1);                                           // Serial MIDI specification: 31250 baud, 8 data bits, no parity, 1 stop bit
 
     // Set pinModes for the digital button matrix
-    for (int pinNumber = 0; pinNumber < columnCount; pinNumber++)               // For each keyswitch column pin...
-    {
-        pinMode(keyswitchColumnPins[pinNumber], OUTPUT);                        // set the pinMode to OUTPUT...
-        digitalWrite(keyswitchColumnPins[pinNumber], HIGH);                     // and default to HIGH.  Individual columns will toggle LOW while being scanned.
-    }
-    for (int pinNumber = 0; pinNumber < columnCount; pinNumber++)               // For each tact switch column pin...
-    {
-        pinMode(tactSwitchColumnPins[pinNumber], OUTPUT);                       // set the pinMode to OUTPUT ...
-        digitalWrite(tactSwitchColumnPins[pinNumber], HIGH);                    // and default to HIGH.  Individual columns will toggle LOW while being scanned.
-    }
-    for (int pinNumber = 0; pinNumber < rowCount; pinNumber++)                  // For each row pin...
-    {
-        pinMode(rowPins[pinNumber], INPUT_PULLUP);                              // Set the pinMode to INPUT_PULLUP.  If this line goes LOW while scanning,
-    }                                                                           // then we know the key under the associated column is being held.
-
+   
     // Set pinModes for analog inputs
     pinMode(topPotPin, INPUT);
     pinMode(bottomPotPin, INPUT);
@@ -3011,8 +2861,8 @@ void setup()
     pinMode(footPedalPin, INPUT_PULLDOWN);
 
     // OLED setup
-    Wire1.begin();                                                               // Init I2C
-    Wire1.setClock(400000L);
+    Wire.begin();                                                               // Init I2C
+    Wire.setClock(400000L);
                                                                                  // Fast mode
     oled.begin(&Adafruit128x64, I2C_ADDRESS);                                   // OLED type and address
     oled.setFont(font5x7);                                                      // Set the font type (https://github.com/greiman/SSD1306Ascii/blob/master/doc/5x7fonts.pdf)
@@ -3095,9 +2945,9 @@ void loop()
 
     // Digital button related tasks
     digitalButtons();
-
+ 
     // Foot pedal related tasks
-    footPedal();
+    //footPedal();
 
     // Analog pot related tasks
     analogPots();
@@ -3111,7 +2961,7 @@ void loop()
     // Hardware test - Comment this function out when not being used.
     // Make sure to also comment out the tact-switch velocity "timeout" feature in the digitalButtons() function.
     // Search for "hardwareTest()" to find the comment with instructions.
-    // hardwareTest();
+    //hardwareTest();
 
     // MIDI control change related tasks (pitch bend/modulation)
     if (rateLimiterToggle == HIGH) { digitalMidiCC(); }    // Rate limiting to cut down on looper packets that need to be recorded
